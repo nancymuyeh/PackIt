@@ -1,0 +1,178 @@
+openapi: 3.0.0
+info:
+  title: PackIt URL shortener
+  version: 1.0.0
+servers:
+  - url: 'http://localhost:{port}'
+    description: Local server
+    variables:
+      port:
+        default: "8080"
+
+tags: 
+  - name: shortener
+    description: Operations about URL shortening
+  - name: Analytics
+    description: Operations about URL tracking analyses
+  - name : Redirect
+    description: Operations about URL redirection
+
+paths:
+  '/api/v1/links':
+    post:
+      summary: Create a new shortened URL and stores the mapping between the short URL and the original long URL in the link_data table.
+      tags: [shortener]
+      operationId: shertenUrl
+      requestBody:
+        description: The long URL to be shortened
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkData'
+            example:
+              longUrl: "https://docs.google.com/document/d/1EbvMXqN9uehzMiPv-OgNBBhn0Ag-lviDBHaVjD2SnIM/edit"
+      responses:
+        '201':
+          description: Succesfully shortened URL
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkData'
+              example: 
+                shortUrl: "https://packit/my-shortlink"
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Invalid URL format"
+                message: "The provided long URL is not a valid URL."
+        '409':
+          description: Conflict with existing data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Conflict"
+                message: "The URL already exists in the system."
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Unprocessable Entity"
+                message: "The long URL is invalid."
+  '/api/{shortlink}':
+    get:
+      summary: Redirect to Original URL
+      description: >
+        This API takes the short URL as a path parameter, looks up the corresponding
+        long URL in the `link_data` table, and redirects the user to the original long URL.
+      operationId: redirectToOriginalUrl
+      tags: [Redirect]
+      parameters:
+        - name: shortlink
+          in: path
+          required: true
+          description: The short URL to be redirected.
+          schema:
+            type: string
+            example: abc123
+      responses:
+        '307':
+          description: Temporary Redirect to the original long URL
+          headers:
+            Location:
+              description: The URL to which the client is redirected.
+              schema:
+                type: string
+                format: uri
+                example: "https://docs.google.com/document/d/1EbvMXqN9uehzMiPv-OgNBBhn0Ag-lviDBHaVjD2SnIM/edit"
+
+        '400':
+          description: Bad Request - Invalid shortlink format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Invalid Shortlink"
+                message: "The shortlink provided is not in a valid format."
+
+        '404':
+          description: Not Found - Shortlink does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Not Found"
+                message: "The shortlink does not exist in the system."
+
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Internal Server Error"
+                message: "An unexpected error occurred. Please try again later."
+
+
+
+components:
+  schemas:
+    LinkData:
+      type: object
+      properties:
+        id:
+          type: integer
+        short_url:
+          type: string
+        long_url:
+          type: string
+        url_description:
+          type: string
+        url_topic: 
+          type: string
+        date_created:
+          type: string
+          format: date-time
+        
+    AnalyticsData:
+      type: object
+      properties:
+        id:
+          type: interger
+        short_url:
+          type: string
+        numberOfClicks:
+          type: interger
+        deviceIpAdress:
+          type: string
+          oneOf:
+            - format: ipv4
+            - format: ipv6
+        deviceOs: 
+          type: string
+        deviceLocation:
+          type: string
+        lastVisited:
+          type: string
+          format: date-time
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: The error type
+        message:
+          type: string
+          description: A detailed error message
